@@ -47,6 +47,14 @@
         .option-btn.correct { background-color: rgba(16, 185, 129, 0.2); border-color: var(--correct); color: var(--correct); font-weight: 600; }
         .option-btn.incorrect { background-color: rgba(239, 68, 68, 0.2); border-color: var(--incorrect); color: var(--incorrect); }
         
+        /* NUEVOS ESTILOS PARA EL CARTEL DE RESPUESTA */
+        .feedback-text {
+            margin-top: 15px; padding: 12px; border-radius: 8px; font-weight: 700;
+            text-align: center; font-size: 1rem; display: none;
+        }
+        .feedback-correct { color: var(--correct); background-color: rgba(16, 185, 129, 0.1); border: 1px solid var(--correct); }
+        .feedback-incorrect { color: var(--incorrect); background-color: rgba(239, 68, 68, 0.1); border: 1px solid var(--incorrect); }
+
         .bottom-bar {
             position: fixed; bottom: 0; left: 0; width: 100%; background-color: var(--surface);
             padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: center;
@@ -77,6 +85,8 @@
             <div class="question-card">
                 <p class="question-text" id="questionText">Cargando pregunta...</p>
                 <div class="options" id="optionsContainer"></div>
+                <!-- CONTENEDOR DEL TEXTO CORRECTO/INCORRECTO -->
+                <div id="feedbackText" class="feedback-text"></div>
             </div>
         </div>
         
