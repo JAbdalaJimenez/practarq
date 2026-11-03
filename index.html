@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulacro Arquitectura 2do Parcial Completo</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --correct: #10b981;
+            --incorrect: #ef4444;
+            --border: #334155;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: system-ui, -apple-system, sans-serif; }
+        body {
+            margin: 0; padding: 0; background-color: var(--bg); color: var(--text);
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+        header {
+            background-color: var(--surface); padding: 16px; text-align: center;
+            border-bottom: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.2); z-index: 10;
+        }
+        h1 { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--primary); }
+        .progress-container { width: 100%; background-color: var(--bg); height: 6px; margin-top: 12px; border-radius: 3px; overflow: hidden; }
+        .progress-bar { height: 100%; background-color: var(--primary); width: 0%; transition: width 0.3s; }
+        .stats { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); margin-top: 8px; font-weight: 600; }
+        
+        main { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .quiz-container { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 20px; padding-bottom: 80px; }
+        
+        .question-card { background-color: var(--surface); padding: 20px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .question-text { font-size: 1.1rem; font-weight: 600; line-height: 1.5; margin: 0 0 20px 0; color: #ffffff; }
+        
+        .options { display: flex; flex-direction: column; gap: 10px; }
+        .option-btn {
+            background-color: var(--bg); color: var(--text); border: 1px solid var(--border);
+            padding: 16px; border-radius: 10px; font-size: 0.95rem; text-align: left;
+            cursor: pointer; transition: all 0.2s; line-height: 1.4;
+        }
+        .option-btn:active { transform: scale(0.98); }
+        .option-btn.disabled { pointer-events: none; opacity: 0.8; }
+        .option-btn.correct { background-color: rgba(16, 185, 129, 0.2); border-color: var(--correct); color: var(--correct); font-weight: 600; }
+        .option-btn.incorrect { background-color: rgba(239, 68, 68, 0.2); border-color: var(--incorrect); color: var(--incorrect); }
+        
+        .bottom-bar {
+            position: fixed; bottom: 0; left: 0; width: 100%; background-color: var(--surface);
+            padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: center;
+        }
+        .next-btn {
+            background-color: var(--primary); color: white; border: none; padding: 16px 32px;
+            border-radius: 10px; font-size: 1rem; font-weight: 700; width: 100%; max-width: 500px;
+            cursor: pointer; display: none; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .next-btn:active { background-color: var(--primary-dark); }
+        
+        .result-screen { display: none; text-align: center; margin-top: 40px; }
+        .score-circle { width: 120px; height: 120px; border-radius: 50%; background: var(--surface); border: 4px solid var(--primary); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; margin: 0 auto 20px auto; color: var(--primary); }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Simulacro 2do Parcial</h1>
+        <div class="progress-container"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="stats">
+            <span id="counterText">1 / 76</span>
+            <span id="scoreText">Puntos: 0</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="quiz-container" id="quizContainer">
+            <div class="question-card">
+                <p class="question-text" id="questionText">Cargando pregunta...</p>
+                <div class="options" id="optionsContainer"></div>
+            </div>
+        </div>
+        
+        <div class="result-screen" id="resultScreen">
+            <div class="score-circle" id="finalScore">0%</div>
+            <h2 style="color: white; margin-bottom: 8px;">¡Simulacro Completado!</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">Has finalizado todas las preguntas del parcial.</p>
+            <button class="next-btn" style="display: block;" onclick="location.reload()">Reiniciar Simulacro</button>
+        </div>
+    </main>
+
+    <div class="bottom-bar" id="bottomBar" style="display: none;">
+        <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Siguiente Pregunta</button>
+    </div>
+
+    <script>
+        const db = [
+            { q: "¿Qué deberá hacer un programador para construir máquinas algorítmicas genéricas?", a: "Determinar qué instrucciones debe interpretar y cómo se codifican en binario.", f: ["Aumentar la velocidad del reloj del microprocesador.", "Diseñar una nueva arquitectura de memoria caché.", "Reemplazar el disco rígido por uno de estado sólido."] },
+            { q: "¿Qué tipo de memoria es la denominada 'memoria caché'?", a: "SRAM", f: ["DRAM", "Flash NAND", "ROM"] },
+            { q: "¿Para qué se utiliza principalmente la 'memoria caché'?", a: "Para agilizar el funcionamiento del procesador.", f: ["Para almacenar el sistema operativo permanentemente.", "Para aumentar la capacidad gráfica de la placa de video.", "Para mantener el reloj del sistema cuando no hay energía."] },
+            { q: "En el registro de Estado, ¿qué indica el Indicador de Paridad?", a: "Indica que el número de bits cuyo valor es '1' como resultado de la última operación realizada por la ALU es par.", f: ["Indica que hay un error de lectura en el disco magnético.", "Indica que la memoria RAM está funcionando a doble canal (Dual Channel).", "Indica que el procesador está sobrecalentado y debe bajar la frecuencia."] },
+            { q: "¿Qué tipo de operaciones realiza el microprocesador utilizando sus registros internos?", a: "Operaciones aritméticas y lógicas simples.", f: ["Operaciones de lectura y escritura en discos ópticos.", "Operaciones de compresión de video en tiempo real.", "Operaciones de ruteo de red hacia internet."] },
+            { q: "La ausencia de la Unidad de Punto Flotante disminuye la velocidad. En estas condiciones, ¿cómo realiza las operaciones de punto flotante un ordenador de escritorio?", a: "Utilizando programas en microcódigo.", f: ["Derivando el cálculo al disco duro.", "No puede realizarlas y muestra un error de hardware.", "Utilizando el chip de la BIOS."] },
+            { q: "¿Cuáles son los tres componentes básicos de una tarjeta de video que determinan su rendimiento?", a: "La GPU, el tipo de memoria RAM, el ancho de BUS de datos.", f: ["El tamaño del monitor, el tipo de cable HDMI, la fuente de poder.", "La placa madre, el disco SSD, la refrigeración líquida.", "El procesador central, el teclado mecánico, la latencia de internet."] },
+            { q: "En las grabaciones magnéticas, ¿qué sucede cuando desaparece el campo externo que orientó los átomos del material ferroso?", a: "El material no presenta cambios en su estado.", f: ["El material se desmagnetiza inmediatamente.", "Los átomos cambian a una polaridad invertida.", "El material se calienta y pierde su estructura física."] },
+            { q: "¿Cómo se llama el material específico sin el cual no es posible hacer impresiones láser?", a: "Tóner", f: ["Tinta líquida", "Cinta de carbón", "Papel térmico reactivo"] },
+            { q: "La función del registro interno 'Contador de programa (Program Counter)' es:", a: "Contiene la dirección de la próxima instrucción a ejecutar por el microprocesador.", f: ["Cuenta la cantidad de programas instalados en la PC.", "Guarda el resultado de la última suma matemática.", "Controla la velocidad del ventilador del procesador."] },
+            { q: "¿Qué función cumple el 'Registro de Propósitos Generales'?", a: "Permite almacenar datos temporales o resultados intermedios.", f: ["Guarda permanentemente las contraseñas del usuario.", "Traduce direcciones virtuales a direcciones físicas.", "Mantiene la configuración de fecha y hora."] },
+            { q: "¿Cuáles son las características del conjunto de instrucciones de la filosofía RISC?", a: "Simples y pequeñas.", f: ["Complejas y de longitud variable.", "Dependientes de un gran microprograma interno.", "Orientadas estrictamente a discos ópticos."] },
+            { q: "En un dispositivo Magneto-Óptico el láser calienta la superficie para que el cabezal alinee las partículas. ¿Cuál es la ventaja de esta tecnología?", a: "Mayor densidad de los datos almacenados, reduciendo el tamaño.", f: ["No utiliza electricidad para funcionar.", "Es totalmente inmune a los golpes mecánicos.", "La lectura es instantánea sin latencia rotacional."] },
+            { q: "¿Qué tipo de máquina es la unidad de control?", a: "De estado.", f: ["Virtualizada.", "Analógica.", "Neumática."] },
+            { q: "En las pantallas LCD, ¿cuáles son los colores de las tres celdas que forman cada píxel individual?", a: "Rojo, verde y azul.", f: ["Cian, magenta y amarillo.", "Blanco, gris y negro.", "Naranja, violeta y verde."] },
+            { q: "¿Dónde se encuentra la actual unidad de punto flotante?", a: "Dentro mismo del microprocesador.", f: ["En un chip soldado a la placa madre.", "Dentro de la memoria RAM principal.", "Integrada en la fuente de alimentación."] },
+            { q: "¿Cuáles son las excepciones más comunes?", a: "El producto de un error de cálculo aritmético.", f: ["La falta de tinta en la impresora.", "La desconexión súbita del teclado.", "La pérdida de señal Wi-Fi."] },
+            { q: "¿Qué utilidad tiene el uso de memoria caché en el disco duro?", a: "Mejora el tiempo de acceso a la información.", f: ["Aumenta la capacidad de almacenamiento total del disco.", "Evita que los virus modifiquen los archivos.", "Reduce el voltaje necesario para girar el motor."] },
+            { q: "¿De qué otra manera suele llamarse a la unidad de punto flotante?", a: "Coprocesador matemático.", f: ["Controlador de memoria.", "Puente Norte (Northbridge).", "Unidad Aritmética y Lógica secundaria."] },
+            { q: "¿Cuál es una de las ventajas más significativas de una pantalla de plasma frente a LCD?", a: "Mayor contraste.", f: ["Menor consumo de energía eléctrica.", "Es completamente flexible.", "No genera nada de calor."] },
+            { q: "¿Cómo se denomina al mecanismo de comunicación con periféricos que utilizaba el procesador previo a la existencia de las interrupciones?", a: "Polling", f: ["Pipelining", "Spooling", "DMA (Direct Memory Access)"] },
+            { q: "¿Qué valores relacionados con el contraste estático son considerados muy buenos para monitores modernos?", a: "Entre 1000:1 y 5000:1.", f: ["Entre 10:1 y 50:1.", "Entre 1:1 y 2:1.", "Más de 1.000.000:1 reales."] },
+            { q: "Determine cuáles son tres de los elementos básicos que componen un microprocesador.", a: "Unidad aritmético lógica, Unidad de control, Registros internos.", f: ["Memoria RAM, Disco Rígido, Fuente de Poder.", "Placa de video, Tarjeta de red, Placa de sonido.", "BIOS, Pila CMOS, Reloj del sistema."] },
+            { q: "Si una ALU se diseña para realizar solo sumas y restas, ¿cómo debería hacer un programador para enseñarle a multiplicar?", a: "Construyendo un algoritmo de sumas sucesivas.", f: ["Insertando un nuevo chip físico de multiplicación.", "Cambiando el sistema operativo a Linux.", "Utilizando operaciones de punto flotante directas."] },
+            { q: "¿Cuál es el material empleado en la fabricación de una pantalla de LCD?", a: "Cristal líquido.", f: ["Gas plasma ionizado.", "Tubos de rayos catódicos.", "Fósforo radiactivo."] },
+            { q: "¿En qué sistema de numeración se fundamenta la ALU para ejecutar las operaciones?", a: "En el sistema de numeración binaria.", f: ["En el sistema decimal.", "En el sistema hexadecimal.", "En el sistema octal."] },
+            { q: "¿Qué tipo de principio físico utilizan los 'discos ópticos' para almacenar información?", a: "La grabación mediante emisión de rayos láser.", f: ["La polaridad de campos magnéticos.", "La perforación mecánica de tarjetas de papel.", "La inyección microscópica de tinta."] },
+            { q: "Diseña un procesador de 16 líneas de datos pero ejecuta operaciones de 24 bits. ¿Qué ocurre?", a: "El procesador puede ejecutar operaciones más largas en más ciclos de reloj.", f: ["El sistema operativo se bloquea por desbordamiento.", "Trunca la operación perdiendo los 8 bits restantes.", "Se apaga el equipo por seguridad eléctrica."] },
+            { q: "¿En qué orden de magnitud se encuentra la velocidad de búsqueda de una unidad JAZZ?", a: "En milisegundos (alrededor de 17).", f: ["En nanosegundos.", "En segundos completos.", "En microsegundos."] },
+            { q: "¿Qué tipo de modulación utilizan los ordenadores para transformar una señal analógica en digital?", a: "PCM.", f: ["AM/FM.", "PWM.", "QPSK."] },
+            { q: "¿Qué tipo de dispositivo de almacenamiento son los discos duros, las cintas magnéticas y los discos ópticos?", a: "Secundarios.", f: ["Primarios.", "Terciarios.", "Volátiles."] },
+            { q: "Cuando se habla de memoria 'caché' unificada, ¿a qué se hace referencia?", a: "Al que no diferencia entre datos e instrucciones.", f: ["A la que une la RAM con el Disco Duro.", "A la que está alojada fuera del procesador.", "A la que es compartida por la tarjeta de video."] },
+            { q: "¿Cuáles son los tres factores más significativos que favorecieron el desarrollo de los sistemas de almacenamiento digital?", a: "La eficiencia, el económico, la velocidad.", f: ["El color, el peso, el tamaño físico.", "La estética, la moda, el consumo de internet.", "El calor disipado, el ruido mecánico, la fricción."] },
+            { q: "¿Qué dos funcionalidades básicas poseen las placas de sonido?", a: "Grabar y reproducir sonidos.", f: ["Proyectar video 3D y comprimir archivos.", "Acelerar internet y enrutar paquetes.", "Conectar micrófonos USB y cargar el celular."] },
+            { q: "¿Cuál es la principal característica de las unidades ZIP y JAZZ?", a: "Son unidades removibles.", f: ["Están soldadas a la placa madre.", "Utilizan tecnología láser azul.", "No utilizan partes mecánicas móviles."] },
+            { q: "¿Qué dispositivos utilizan las placas de sonido para permitir almacenar sonido digital?", a: "Convertidores analógico-digitales.", f: ["Módems telefónicos de 56k.", "Amplificadores de bulbos (válvulas).", "Transistores MOSFET de potencia."] },
+            { q: "En un sistema Surround 5.1, ¿para qué se utiliza el subwoofer?", a: "Para reproducir sonidos graves.", f: ["Para los diálogos principales (canal central).", "Para los efectos de sonido agudos.", "Para decodificar la señal de video."] },
+            { q: "¿A qué se denomina 'Modos de Direccionamiento'?", a: "A las distintas formas en las que se puede hacer referencia a los operandos de una instrucción.", f: ["A la manera de rutear paquetes IP en la red.", "Al orden en que giran los platos de un disco rígido.", "A la ruta de carpetas en Windows (C:\\)."] },
+            { q: "¿Cuál es una característica del lenguaje ensamblador no muy deseable para programadores?", a: "Depende del microprocesador (no es portable).", f: ["Es extremadamente lento para ejecutarse.", "Requiere conexión a internet para compilar.", "No permite operaciones matemáticas básicas."] },
+            { q: "Una interrupción (hardware o software) es una señal recibida por el procesador. ¿Qué le indica?", a: "Que debe interrumpir el proceso en ejecución y pasar a ejecutar un código específico.", f: ["Que se cortó la energía eléctrica y debe apagarse.", "Que el usuario presionó el botón de reset.", "Que el disco duro está lleno y debe borrar archivos."] },
+            { q: "Conceptualmente, ¿a cuántos 'Ciclos de máquina' equivale un ciclo de instrucción?", a: "Uno o más.", f: ["A medio ciclo exacto.", "A cero ciclos.", "A la velocidad en GHz dividido dos."] },
+            { q: "La función del registro interno 'Puntero de pila' (Stack Pointer) es:", a: "Contiene la dirección de memoria donde comienza la pila o stack.", f: ["Almacena la próxima instrucción a decodificar.", "Muestra la cantidad de batería de la CMOS.", "Contiene el puntero del mouse en la pantalla."] },
+            { q: "Las máquinas algorítmicas se construyen para ejecutar un algoritmo de manera eficiente. ¿Qué significa esto?", a: "Realizar una tarea minimizando su costo (tiempo/recursos).", f: ["Procesar datos consumiendo la mayor energía posible.", "Hacer los cálculos de la forma más lenta y segura.", "No utilizar nunca memoria RAM para operar."] },
+            { q: "¿Cuál es una ventaja significativa de una pantalla LCD frente a una de plasma?", a: "Mayor durabilidad.", f: ["Menor precio de reparación.", "Es más pesada y robusta.", "Mejores ángulos de visión en exteriores brillantes."] },
+            { q: "¿Cómo funcionan las máquinas algorítmicas clásicas?", a: "Siguiendo un conjunto ordenado de instrucciones.", f: ["Actuando de manera completamente aleatoria.", "Usando redes neuronales no supervisadas.", "Resolviendo por fuerza bruta mecánica."] },
+            { q: "¿Cuál es la principal ventaja de estructurar un programa en base a subrutinas?", a: "Facilita la depuración del programa.", f: ["Hace que el código se ejecute diez veces más rápido.", "Evita que la PC consuma electricidad.", "Oculta el código fuente de los hackers."] },
+            { q: "¿Qué empresa lanzó el formato AVI?", a: "Microsoft.", f: ["Apple.", "Sony.", "Google."] },
+            { q: "¿De qué otra manera se denomina a las subrutinas en la programación estructurada?", a: "Funciones o procedimientos.", f: ["Objetos y clases.", "Variables dinámicas.", "Macros de hardware."] },
+            { q: "¿Cuál es la utilidad de representar un número en punto flotante?", a: "La capacidad de representar números muy pequeños y, al mismo tiempo, números muy grandes.", f: ["Permitir que la CPU escriba texto en la pantalla.", "Facilitar el formato de discos duros en FAT32.", "Evitar que los números sean negativos."] },
+            { q: "El controlador de interrupciones tiene una capacidad fundamental además de fijar prioridades:", a: "Habilitar o deshabilitar interrupciones.", f: ["Crear archivos de texto en el disco.", "Acelerar la frecuencia base de la placa madre.", "Enfriar la memoria RAM."] },
+            { q: "Un disco está constituido por una base magnetizable. ¿Cómo se denominan los círculos concéntricos?", a: "Pistas", f: ["Sectores", "Clústeres", "Bloques lógicos"] },
+            { q: "Las tres especificaciones principales para conectar un disco a la placa madre son:", a: "SATA, SCSI, IDE.", f: ["USB, HDMI, VGA.", "PCI, AGP, ISA.", "RJ45, RS232, PS/2."] },
+            { q: "¿Entre qué dos componentes se sitúa la denominada 'Memoria caché'?", a: "Entre el microprocesador y la memoria principal (RAM).", f: ["Entre el disco duro y la placa de video.", "Entre el teclado y la unidad aritmético-lógica.", "Entre la fuente de alimentación y la placa madre."] },
+            { q: "¿Qué es la memoria 'Caché'?", a: "Un sistema especial de memoria de alta velocidad.", f: ["Un archivo oculto del sistema operativo.", "Una partición especial del disco rígido.", "Un programa para limpiar archivos temporales."] },
+            { q: "¿Cuál es la función principal de la unidad de control?", a: "El gobierno interno del ordenador.", f: ["Sumar y restar números binarios.", "Renderizar gráficos 3D en pantalla.", "Almacenar archivos mp3 de forma segura."] },
+            { q: "¿Cuál es la función básica del microprocesador?", a: "Ejecutar las instrucciones que forman parte de una aplicación o programa.", f: ["Emitir los sonidos de la placa base.", "Darle energía eléctrica a los periféricos.", "Proveer conexión inalámbrica Wi-Fi."] },
+            { q: "Según el teorema de Nyquist, si el oído humano oye hasta 16 kHz, ¿cuál debe ser la frecuencia mínima de muestreo?", a: "32 kHz.", f: ["16 kHz.", "8 kHz.", "64 kHz."] },
+            { q: "Diferencia fundamental entre los estándares de ranuras ISA y PCI:", a: "Las placas PCI manejan datos de 32 a 64 bits, mientras que ISA de 8 a 16 bits.", f: ["ISA es digital y PCI es puramente analógica.", "PCI es un conector redondo y ISA rectangular.", "ISA se usa en procesadores RISC y PCI en CISC."] },
+            { q: "Las políticas de sustitución de caché incluyen LRU, Aleatoria y FIFO. ¿Cuál es la cuarta?", a: "Bloque usado menos frecuentemente (LFU).", f: ["Bloque más grande guardado (BIG).", "Bloque más pesado en bits (HVY).", "Sustitución lineal directa (LDS)."] },
+            { q: "¿Cómo se denominan las unidades donde se almacenan datos que sirven de entrada para la ALU?", a: "Registros internos.", f: ["Bancos de memoria DIMM.", "Sectores de arranque del HDD.", "Celdas Flash NOR."] },
+            { q: "Los microprocesadores 'cableados' dependen de un microprograma:", a: "Falso.", f: ["Verdadero.", "Depende del fabricante.", "Solo los x86 cumplen esa regla."] },
+            { q: "¿Qué información brindan los indicadores de estado a la ALU?", a: "El resultado de la última operación realizada.", f: ["La temperatura medida en los transistores.", "El porcentaje libre del disco SSD.", "Los ciclos de reloj restantes del bus."] },
+            { q: "Los plotters limitados al dibujo lineal, ¿cómo realizan el movimiento de las plumas sobre el papel?", a: "Mediante el uso de dos motores paso a paso.", f: ["Con levitación magnética.", "Usando presión hidráulica.", "Mediante láseres de posición térmica."] },
+            { q: "¿Qué es un plotter?", a: "Un dispositivo de impresión destinado a la copia de planos o dibujo de piezas.", f: ["Un escáner 3D portátil.", "Un monitor curvo ultra-ancho.", "Un tipo antiguo de disquete."] },
+            { q: "¿Qué se conoce como 'ciclo de instrucción'?", a: "Es el tiempo que tarda la Unidad Central de Proceso (CPU) en ejecutar una instrucción.", f: ["Es el tiempo que tarda el monitor en refrescar la pantalla.", "Es el lapso entre el encendido del PC y la carga del SO.", "Es el tiempo de descarga de un archivo de internet."] },
+            { q: "Las unidades 'CD-ROM' son muy populares. ¿Cuál es su característica principal?", a: "Son solo dispositivos de lectura.", f: ["Permiten regrabar datos ilimitadas veces.", "Utilizan cinta magnética internamente.", "Tienen capacidades superiores a los 50 GB."] },
+            { q: "Por cada plato de un disco duro habrá una cabeza de lectura, accediendo de forma simultánea a un cilindro.", a: "Verdadero.", f: ["Falso, solo se lee una cara de un plato a la vez.", "Falso, el cabezal único salta entre platos.", "Verdadero, pero solo en discos ópticos."] },
+            { q: "Al escribir sobre un disco óptico, la luz láser crea microscópicos agujeros denominados:", a: "Pits.", f: ["Lands.", "Clústeres.", "Cilindros."] },
+            { q: "¿Cuál es la principal diferencia entre las unidades ZIP y JAZZ?", a: "Las unidades JAZZ se presentan con velocidades de acceso superiores a las unidades ZIP.", f: ["Las ZIP usan tecnología óptica y JAZZ usa magnética.", "Las ZIP tienen 1 TB de espacio y JAZZ solo 100 MB.", "Son idénticas, solo cambia la marca del fabricante."] },
+            { q: "¿Qué operaciones realiza el controlador de la memoria 'caché'?", a: "Mover bloques de datos de la RAM a la caché y llevar registro de modificaciones.", f: ["Formatear la memoria RAM en caso de virus.", "Desactivar la Unidad de Control cuando no hay tareas.", "Reducir la latencia rotacional del disco duro."] },
+            { q: "¿Qué tipología de programas hizo necesaria la inclusión de la aritmética de punto flotante inicialmente?", a: "Los programas científicos.", f: ["Los editores de texto básicos.", "Los reproductores de audio mp3.", "Los sistemas operativos de 8 bits."] },
+            { q: "Distintos métodos que usan los dispositivos de impresión para realizar copias:", a: "La inyección de tinta, el láser, el impacto.", f: ["Sublimación nuclear, serigrafía térmica, láser azul.", "Fotografía húmeda, grabado en relieve, ósmosis.", "Impresión 3D magnética, inyección de plasma, impacto acústico."] },
+            { q: "Identifica 3 diferentes modos de direccionamiento:", a: "Inmediato, Indexado, Indirecto.", f: ["Rápido, Pausado, Estático.", "Lateral, Frontal, Posterior.", "Lineal, Circular, Perpendicular."] },
+            { q: "Las computadoras con gráficos integrados en la placa madre pueden desactivar dicho chip en la BIOS para añadir una tarjeta.", a: "Verdadero.", f: ["Falso, los gráficos integrados son inamovibles.", "Falso, la BIOS prohíbe añadir tarjetas PCI.", "Verdadero, pero solo si se formatea el sistema operativo."] },
+            { q: "Si la unidad FPU realiza cálculos relacionados estrictamente unos tras otros, ¿conviene aplicar segmentación (pipelining)?", a: "No conviene, porque la segmentación requiere instrucciones no secuenciales (independientes).", f: ["Sí, siempre conviene en todos los casos.", "Solo si el procesador es AMD y no Intel.", "Sí, porque divide los cálculos en RAM."] },
+            { q: "Si se digitaliza una señal usando 8 niveles de cuantificación, ¿cuántos bits necesita la codificación?", a: "3 bits.", f: ["8 bits.", "4 bits.", "2 bits."] },
+            { q: "Si excede los 16 bits de código de operación dentro de enteros con signo:", a: "Se mostrará un flag o indicador de estado informando desbordamiento de capacidad.", f: ["La PC se reinicia automáticamente.", "Se borra la memoria caché por seguridad.", "El disco rígido emite un pitido."] },
+            { q: "En FAT, ¿es posible que dos archivos tengan exactamente el mismo nombre?", a: "Es posible, ya que aunque los nombres son iguales, se ubican en directorios diferentes.", f: ["Es imposible, el SO explotaría.", "Solo si uno es oculto y el otro no.", "Solo en discos menores a 1GB."] },
+            { q: "¿Cuál es el contenido que se lee primero dentro de la estructura de una tabla FAT?", a: "El sector de arranque.", f: ["El directorio raíz.", "Los archivos de datos.", "La tabla MFT."] },
+            { q: "Además de compuertas, ¿qué diferencia principal separa las memorias Flash NAND y NOR?", a: "Las NAND son mucho más rápidas en acceso por bloques, pero NOR es más rápida en acceso aleatorio.", f: ["Las NOR pierden los datos al apagarse.", "Las NAND usan tecnología magnética.", "Las NOR solo vienen en 512 MB."] },
+            { q: "¿A qué factor afecta principalmente la fragmentación de un SSD?", a: "Al tiempo de servicio (rendimiento).", f: ["A la rotación del motor mecánico.", "A la latencia del internet.", "A los colores de la pantalla."] },
+            { q: "¿Cuáles son desventajas de los SSD como medios masivos?", a: "Permanencia de datos menor al HDD apagado, número de escrituras limitado, baja rendimiento si está muy lleno/usado.", f: ["Mucho ruido mecánico, pesados, requieren defragmentación constante.", "Consumen demasiada energía y rompen fuentes.", "No pueden instalar sistemas operativos de 64 bits."] },
+            { q: "En un DVD de 4 GB, guardás archivos de 102MB, 128MB y 5MB. ¿Cuánto espacio desperdicias o queda libre? (Aprox 4000MB - 235MB)", a: "3,77 GB", f: ["1,5 GB", "0 GB", "2,1 GB"] },
+            { q: "¿Cuál es la principal desventaja de un CD-RW frente a un HDD?", a: "Velocidad de acceso.", f: ["Portabilidad.", "Capacidad de grabar.", "Resistencia a campos magnéticos."] },
+            { q: "Instrucción XOR 0101 1010 / 0000 1000 / 0000 0010 (Suponiendo opcode / src1 / src2_dest)", a: "XOR entre Direccion 8 y 2, almacenar en 2.", f: ["Sumar dirección 8 y 2, guardar en RAM.", "Borrar el contenido de dirección 8.", "Multiplicar 8 por 2 y enviar a caché."] },
+            { q: "Relación S/N de 40 dB. Fórmula: 40 = 1.76 + 6.02*n. ¿Bits mínimos (n)?", a: "7 bits.", f: ["4 bits.", "16 bits.", "8 bits."] },
+            { q: "En digitalización, el error de cuantificación existe porque:", a: "El valor de tensión muestreado es diferente a los valores discretos de cuantificación (escalones).", f: ["El cable analógico hace interferencia electromagnética.", "El disco rígido no tiene velocidad para grabar.", "La señal analógica es completamente plana."] },
+            { q: "PCM a 40 kHz, 14 bits por muestra. ¿Velocidad de transferencia mínima del módem? (40000 * 14)", a: "560 Kbps", f: ["128 Kbps", "1 Mbps", "256 Kbps"] },
+            { q: "Relación S/N (dB) con sistema PCM de 65,536 niveles (16 bits). S/N = 1.76 + 6.02*16", a: "98,08 dB", f: ["40,12 dB", "120,5 dB", "50 dB"] },
+            { q: "Todo sistema de computador se puede dividir en tres ámbitos:", a: "Entrada de datos, proceso de datos, salida de datos.", f: ["Teclado, Mouse, Monitor.", "CPU, RAM, Disco.", "Internet, Intranet, Extranet."] },
+            { q: "Si la ULA trabaja sin signo con 8 bits (como estándar básico). ¿Qué variabilidad acepta?", a: "Entre 0 y 255 decimal.", f: ["Entre -128 y 127 decimal.", "Entre 0 y 65536 decimal.", "Entre -512 y 511 decimal."] },
+            { q: "¿Cuál es la principal diferencia entre NTFS y FAT?", a: "NTFS no tiene una tabla de asignación clásica con regiones rígidas.", f: ["FAT admite nombres de 255 caracteres nativos y NTFS solo 8.", "NTFS fue creado para disquetes pequeños.", "FAT es transaccional y tiene un log de errores interno."] },
+            { q: "Tiempo medio de acceso caché L1 depende de:", a: "Su tiempo de acierto de L1 + tasa de fallos en L1 * penalización (acceso L2/RAM).", f: ["Velocidad rotacional del disco.", "Cantidad de píxeles del monitor.", "Capacidad en terabytes del almacenamiento."] },
+            { q: "Audio PCM 2 horas, 44,1 kHz, 16 bits (Estéreo asumiendo CD). (2*60*60 * 44100 * 16 * 2 / 8 / 1024 / 1024)", a: "635 MB aprox.", f: ["100 MB", "4,7 GB", "1,2 TB"] },
+            { q: "Latencia rotacional en un disco de 7200 rpm (60 / 7200 / 2):", a: "4,16 ms (Aprox 4,2 ms).", f: ["8,3 ms.", "2,0 ms.", "10 ms."] },
+            { q: "¿Cuál recomiendas para almacenamiento sin pérdida de datos y costo menor posible (equilibrio empresa)?", a: "Discos magnéticos en RAID 5.", f: ["Discos SSD NVMe en RAID 0.", "Cintas perforadas de papel.", "Unidades ZIP conectadas en paralelo."] }
+        ];
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+        
+        shuffleArray(db); 
+        
+        let currentIndex = 0;
+        let score = 0;
+        let answered = false;
+
+        const qText = document.getElementById("questionText");
+        const optionsContainer = document.getElementById("optionsContainer");
+        const nextBtn = document.getElementById("nextBtn");
+        const bottomBar = document.getElementById("bottomBar");
+        const counterText = document.getElementById("counterText");
+        const scoreText = document.getElementById("scoreText");
+        const progressBar = document.getElementById("progressBar");
+
+        function loadQuestion() {
+            if(currentIndex >= db.length) {
+                showResults();
+                return;
+            }
+            answered = false;
+            bottomBar.style.display = "none";
+            const currentQ = db[currentIndex];
+            qText.innerText = currentQ.q;
+            counterText.innerText = `${currentIndex + 1} / ${db.length}`;
+            progressBar.style.width = `${((currentIndex + 1) / db.length) * 100}%`;
+            
+            let options = [
+                { text: currentQ.a, isCorrect: true },
+                { text: currentQ.f[0], isCorrect: false },
+                { text: currentQ.f[1], isCorrect: false },
+                { text: currentQ.f[2], isCorrect: false }
+            ];
+            shuffleArray(options);
+
+            optionsContainer.innerHTML = "";
+            options.forEach(opt => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = opt.text;
+                btn.onclick = () => selectOption(btn, opt.isCorrect, options);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function selectOption(selectedBtn, isCorrect, allOptions) {
+            if(answered) return;
+            answered = true;
+            const buttons = optionsContainer.children;
+            for(let i=0; i<buttons.length; i++) {
+                buttons[i].classList.add("disabled");
+                if(allOptions[i].isCorrect) {
+                    buttons[i].classList.add("correct");
+                }
+            }
+            if(isCorrect) {
+                score++;
+                scoreText.innerText = `Puntos: ${score}`;
+            } else {
+                selectedBtn.classList.add("incorrect");
+            }
+            bottomBar.style.display = "flex";
+            if(currentIndex === db.length - 1) {
+                nextBtn.innerText = "Ver Resultados Finales";
+            } else {
+                nextBtn.innerText = "Siguiente Pregunta";
+            }
+            nextBtn.style.display = "block";
+        }
+
+        function nextQuestion() {
+            currentIndex++;
+            loadQuestion();
+            document.getElementById('quizContainer').scrollIntoView({behavior: "smooth"});
+        }
+
+        function showResults() {
+            document.getElementById("quizContainer").style.display = "none";
+            document.getElementById("bottomBar").style.display = "none";
+            const rs = document.getElementById("resultScreen");
+            rs.style.display = "block";
+            const percentage = Math.round((score / db.length) * 100);
+            const circle = document.getElementById("finalScore");
+            circle.innerText = `${percentage}%`;
+            if(percentage >= 60) {
+                circle.style.borderColor = "var(--correct)";
+                circle.style.color = "var(--correct)";
+            } else {
+                circle.style.borderColor = "var(--incorrect)";
+                circle.style.color = "var(--incorrect)";
+            }
+        }
+
+        loadQuestion();
+    </script>
+</body>
+</html>
